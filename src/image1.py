@@ -128,7 +128,7 @@ class image_converter:
             print(e)
 
         # Uncomment if you want to save the image
-	isolated_image = cv2.inRange(cv2.imread('crop_target.png'), (180, 90, 1), (255, 255, 18))
+	isolated_image = cv2.inRange(cv2.imread('crop_target.png'), (57, 100, 120), (99, 190, 227))
 	cv2.imwrite('crop_target_isolated.png', isolated_image)
         #cv2.imwrite('image_copy.png', self.cv_image1)
 
