@@ -128,7 +128,9 @@ class image_converter:
             print(e)
 
         # Uncomment if you want to save the image
-        cv2.imwrite('image_copy.png', self.cv_image1)
+	isolated_image = cv2.inRange(cv2.imread('crop_target.png'), (180, 90, 1), (255, 255, 18))
+	cv2.imwrite('crop_target_isolated.png', isolated_image)
+        #cv2.imwrite('image_copy.png', self.cv_image1)
 
         a = self.detect_joint_angles(self.cv_image1)
         cv2.imshow('window1', self.cv_image1)
