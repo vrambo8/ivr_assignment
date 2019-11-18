@@ -21,6 +21,8 @@ class image_converter:
         self.image_pub1 = rospy.Publisher("image_topic1", Image, queue_size=1)
         # initialize a subscriber to recieve messages rom a topic named /robot/camera1/image_raw and use callback function to recieve data
         self.image_sub1 = rospy.Subscriber("/camera1/robot/image_raw", Image, self.callback1)
+        # initialize a publisher to send joints' angular position to a topic called joints_pos
+        self.joints_pub = rospy.Publisher("joints_pos", Float64MultiArray, queue_size=10)
         # initialize the bridge between openCV and ROS
         self.bridge = CvBridge()
 
@@ -66,8 +68,15 @@ class image_converter:
         kernel = np.ones((5, 5), np.uint8)
         mask = cv2.dilate(mask, kernel, iterations=3)
         M = cv2.moments(mask)
-        cx = int(M['m10'] / M['m00'])
-        cy = int(M['m01'] / M['m00'])
+        try:
+            cx = int(M['m10'] / M['m00'])
+        except ZeroDivisionError:
+            return None
+        try:
+            cy = int(M['m01'] / M['m00'])
+        except ZeroDivisionError:
+            return None
+
         return np.array([cx, cy])
 
     def pixel2meter(self, image):
@@ -103,11 +112,17 @@ class image_converter:
         # Uncomment if you want to save the image
         # cv2.imwrite('image_copy.png', cv_image)
 
-        im1 = cv2.imshow('window1', self.cv_image1)
+        a = self.detect_joint_angles(self.cv_image1)
+        cv2.imshow('window1', self.cv_image1)
         cv2.waitKey(1)
+
+        self.joints = Float64MultiArray()
+        self.joints.data = a
+
         # Publish the results
         try:
             self.image_pub1.publish(self.bridge.cv2_to_imgmsg(self.cv_image1, "bgr8"))
+            self.joints_pub.publish(self.joints)
         except CvBridgeError as e:
             print(e)
 
