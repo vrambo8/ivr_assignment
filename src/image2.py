@@ -23,6 +23,8 @@ class image_converter:
         self.image_sub2 = rospy.Subscriber("/camera2/robot/image_raw", Image, self.callback2)
         # initialize a publisher to send joints' angular position to a topic called joints_pos
         self.joints_pub2 = rospy.Publisher("joints_pos2", Float64MultiArray, queue_size=10)
+	# initialize a publisher to send target z, x position 
+	self.target_pos2 = rospy.Publisher("target_pos2", Float64MultiArray, queue_size=10)
         # initialize the bridge between openCV and ROS
         self.bridge = CvBridge()
 
@@ -86,6 +88,7 @@ class image_converter:
         mask = cv2.inRange(image, (0, 100, 100), (0, 255, 255))
         kernel = np.ones((5, 5), np.uint8)
         mask = cv2.dilate(mask, kernel, iterations=3)
+	#cv2.imshow('mask2', mask)
         M = cv2.moments(mask)
         try:
             cx = int(M['m10'] / M['m00'])
@@ -98,12 +101,34 @@ class image_converter:
 
         return np.array([cx, cy])
 
-    def detect_orange(self, image):
+    def detect_target(self, image):
         mask = cv2.inRange(image, (57, 100, 120), (99, 190, 227))
         kernel = np.ones((5,5), np.uint8)
         mask = cv2.dilate(mask, kernel, iterations=3)
-        _, contours, _ = cv2.findContours(img.copy(), cv2.RETR_CCOMP, cv2.CHAIN_APPROX_TC89_L1)
-        print(len(contours))
+	#cv2.imshow('mask', mask)
+        _, contours, _ = cv2.findContours(mask.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+	maxArea = 0
+	for c in contours:
+		if (cv2.contourArea(c) > maxArea):
+			maxArea = cv2.contourArea(c)
+			sphere = c
+	M = cv2.moments(sphere)
+        try:
+            cx = int(M['m10'] / M['m00'])
+        except ZeroDivisionError:
+            return None
+        try:
+            cy = int(M['m01'] / M['m00'])
+        except ZeroDivisionError:
+            return None
+	
+	a = self.pixel2meter(image)
+	center = a * self.detect_yellow(image)
+        target = a * np.array([cx, cy])
+	#print("YELLOW: ", a * self.detect_yellow(image))
+	#print("TARGET: ", a * np.array([cx, cy]))
+	dist = np.abs([target[0] - center[0], target[1] - center[1]])
+        return dist
 
     def pixel2meter(self, image):
         # Obtain the centre of each coloured blob
@@ -121,6 +146,12 @@ class image_converter:
         circle1Pos = a * self.detect_blue(image)
         circle2Pos = a * self.detect_green(image)
         circle3Pos = a * self.detect_red(image)
+	targetPos = self.detect_target(image)
+	#print("YELLOW: ", center)
+	#print("BLUE: ", circle1Pos)
+	#print("GREEN: ", circle2Pos)
+	#print("RED: ", circle3Pos)
+	#print("ORANGE: ", targetPos)
         # Solve using trigonometry
         ja1 = np.arctan2(center[0] - circle1Pos[0], center[1] - circle1Pos[1])
         ja2 = np.arctan2(circle1Pos[0] - circle2Pos[0], circle1Pos[1] - circle2Pos[1]) - ja1
@@ -184,14 +215,15 @@ class image_converter:
         self.joints = Float64MultiArray()
         self.joints.data = a
 
-        #self.target =
-        self.detect_orange(self.cv_image2)
+        self.target = Float64MultiArray()
+        self.target.data = self.detect_target(self.cv_image2)
 
         # Publish the results
         try:
             self.image_pub2.publish(self.bridge.cv2_to_imgmsg(self.cv_image2, "bgr8"))
             self.joints_pub2.publish(self.joints)
-            print(a)
+	    self.target_pos2.publish(self.target)
+            #print(a)
         except CvBridgeError as e:
             print(e)
 
