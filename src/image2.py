@@ -22,7 +22,7 @@ class image_converter:
         # initialize a subscriber to recieve messages rom a topic named /robot/camera1/image_raw and use callback function to recieve data
         self.image_sub2 = rospy.Subscriber("/camera2/robot/image_raw", Image, self.callback2)
         # initialize a publisher to send joints' angular position to a topic called joints_pos
-        self.joints_pub = rospy.Publisher("joints_pos", Float64MultiArray, queue_size=10)
+        self.joints_pub2 = rospy.Publisher("joints_pos2", Float64MultiArray, queue_size=10)
         # initialize the bridge between openCV and ROS
         self.bridge = CvBridge()
 
@@ -128,7 +128,7 @@ class image_converter:
         except CvBridgeError as e:
             print(e)
         # Uncomment if you want to save the image
-        # cv2.imwrite('image_copy.png', cv_image)
+        cv2.imwrite('image_copy.png', self.cv_image2)
         a = self.detect_joint_angles(self.cv_image2)
         im2 = cv2.imshow('window2', self.cv_image2)
         cv2.waitKey(1)
@@ -139,7 +139,7 @@ class image_converter:
         # Publish the results
         try:
             self.image_pub2.publish(self.bridge.cv2_to_imgmsg(self.cv_image2, "bgr8"))
-            self.joints_pub.publish(self.joints)
+            self.joints_pub2.publish(self.joints)
             print(a)
         except CvBridgeError as e:
             print(e)
