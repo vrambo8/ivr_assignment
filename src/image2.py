@@ -98,6 +98,13 @@ class image_converter:
 
         return np.array([cx, cy])
 
+    def detect_orange(self, image):
+        mask = cv2.inRange(image, (57, 100, 120), (99, 190, 227))
+        kernel = np.ones((5,5), np.uint8)
+        mask = cv2.dilate(mask, kernel, iterations=3)
+        _, contours, _ = cv2.findContours(img.copy(), cv2.RETR_CCOMP, cv2.CHAIN_APPROX_TC89_L1)
+        print(len(contours))
+
     def pixel2meter(self, image):
         # Obtain the centre of each coloured blob
         circle1Pos = self.detect_blue(image)
@@ -120,6 +127,47 @@ class image_converter:
         ja3 = np.arctan2(circle2Pos[0] - circle3Pos[0], circle2Pos[1] - circle3Pos[1]) - ja2 - ja1
         return np.array([ja1, ja2, ja3])
 
+
+        # In this method you can focus on detecting the rotation of link 1
+
+    def detect_l1(self, image, quadrant):
+        # find the center of the link
+        circle1Pos = self.detect_yellow(image)
+        circle2Pos = self.detect_blue(image)
+        center = (circle1Pos + circle2Pos) / 2
+
+        # Isolate the region of interest in the thresholded image
+        # (select an 160 by 160 window around the center of the link)
+        mask = cv2.inRange(image, (0, 0, 0), (1, 1, 1))
+        ROI = mask[center[1] - self.target.shape[0] / 2: (center[1] + self.target.shape[0] / 2) + 1,
+              center[0] - self.target.shape[1] / 2: (center[0] + self.target.shape[1] / 2) + 1]
+        ROI = ROI[0:self.target.shape[0], 0:self.target.shape[1]]  # making sure it has the same size as the template
+
+        # Apply the distance transform
+        dist = cv2.distanceTransform(cv2.bitwise_not(ROI), cv2.DIST_L2, 0)
+
+        # rotate the template by small step sizes around the angles that was already estimated from lab 1 and compare
+        # it with the cropped image of the link
+        sumlist = np.array([])
+        step = 1  # degree increment in the search
+        rows, cols = self.target.shape
+        quadrant = quadrant - 90  # there is  90 degree difference between the robot frame and frame for rotating the
+        # template
+        angle_iteration = np.arange(quadrant[0], quadrant[1], step)
+        for i in angle_iteration:
+            # Rotate the template to the desired rotation configuration
+            M = cv2.getRotationMatrix2D((cols / 2, rows / 2), i, 1)
+            # Apply rotation to the template
+            rotatedTemplate = cv2.warpAffine(self.target, M, (cols, rows))
+            # Combine the template and region of interest together to obtain only the values that are inside the template
+            img = dist * rotatedTemplate
+            # Sum the distances and append to the list
+            sumlist = np.append(sumlist, np.sum(img))
+
+        # Once all configurations have been searched then select the one with the smallest distance and convert
+        # to radians.
+        return (angle_iteration[np.argmin(sumlist)] * np.pi) / 180.0
+
     # Recieve data, process it, and publish
     def callback2(self, data):
         # Recieve the image
@@ -135,6 +183,9 @@ class image_converter:
 
         self.joints = Float64MultiArray()
         self.joints.data = a
+
+        #self.target =
+        self.detect_orange(self.cv_image2)
 
         # Publish the results
         try:
