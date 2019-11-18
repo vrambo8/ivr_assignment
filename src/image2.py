@@ -26,6 +26,7 @@ class image_converter:
         # initialize the bridge between openCV and ROS
         self.bridge = CvBridge()
 
+
     def detect_red(self, image):
         # Isolate the blue colour in the image as a binary image
         mask = cv2.inRange(image, (0, 0, 100), (0, 0, 255))
@@ -35,8 +36,14 @@ class image_converter:
         # Obtain the moments of the binary image
         M = cv2.moments(mask)
         # Calculate pixel coordinates for the centre of the blob
-        cx = int(M['m10'] / M['m00'])
-        cy = int(M['m01'] / M['m00'])
+        try:
+            cx = int(M['m10'] / M['m00'])
+        except ZeroDivisionError:
+            return None
+        try:
+            cy = int(M['m01'] / M['m00'])
+        except ZeroDivisionError:
+            return None
         return np.array([cx, cy])
 
         # Detecting the centre of the green circle
@@ -46,8 +53,14 @@ class image_converter:
         kernel = np.ones((5, 5), np.uint8)
         mask = cv2.dilate(mask, kernel, iterations=3)
         M = cv2.moments(mask)
-        cx = int(M['m10'] / M['m00'])
-        cy = int(M['m01'] / M['m00'])
+        try:
+            cx = int(M['m10'] / M['m00'])
+        except ZeroDivisionError:
+            return None
+        try:
+            cy = int(M['m01'] / M['m00'])
+        except ZeroDivisionError:
+            return None
         return np.array([cx, cy])
 
         # Detecting the centre of the blue circle
@@ -57,8 +70,14 @@ class image_converter:
         kernel = np.ones((5, 5), np.uint8)
         mask = cv2.dilate(mask, kernel, iterations=3)
         M = cv2.moments(mask)
-        cx = int(M['m10'] / M['m00'])
-        cy = int(M['m01'] / M['m00'])
+        try:
+            cx = int(M['m10'] / M['m00'])
+        except ZeroDivisionError:
+            return None
+        try:
+            cy = int(M['m01'] / M['m00'])
+        except ZeroDivisionError:
+            return None
         return np.array([cx, cy])
 
         # Detecting the centre of the yellow circle
@@ -68,8 +87,15 @@ class image_converter:
         kernel = np.ones((5, 5), np.uint8)
         mask = cv2.dilate(mask, kernel, iterations=3)
         M = cv2.moments(mask)
-        cx = int(M['m10'] / M['m00'])
-        cy = int(M['m01'] / M['m00'])
+        try:
+            cx = int(M['m10'] / M['m00'])
+        except ZeroDivisionError:
+            return None
+        try:
+            cy = int(M['m01'] / M['m00'])
+        except ZeroDivisionError:
+            return None
+
         return np.array([cx, cy])
 
     def pixel2meter(self, image):
@@ -114,6 +140,7 @@ class image_converter:
         try:
             self.image_pub2.publish(self.bridge.cv2_to_imgmsg(self.cv_image2, "bgr8"))
             self.joints_pub.publish(self.joints)
+            print(a)
         except CvBridgeError as e:
             print(e)
 
