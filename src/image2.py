@@ -24,8 +24,8 @@ class image_converter:
         # initialize a publisher to send joints' angular position to a topic called joints_pos
         self.joints_pub2 = rospy.Publisher("joints_pos2", Float64MultiArray, queue_size=10)
 	# initialize a publisher to send target z, x position 
-	self.target_pos2 = rospy.Publisher("target_pos2", Float64MultiArray, queue_size=10)
-        # initialize the bridge between openCV and ROS
+	self.target_x = rospy.Publisher("target_x", Float64, queue_size=10)
+	self.target_z_2 = rospy.Publisher("target_z_2", Float64, queue_size=10)
         self.bridge = CvBridge()
 
 
@@ -125,8 +125,7 @@ class image_converter:
 	a = self.pixel2meter(image)
 	center = a * self.detect_yellow(image)
         target = a * np.array([cx, cy])
-	#print("YELLOW: ", a * self.detect_yellow(image))
-	#print("TARGET: ", a * np.array([cx, cy]))
+	
 	dist = np.abs([target[0] - center[0], target[1] - center[1]])
         return dist
 
@@ -146,58 +145,13 @@ class image_converter:
         circle1Pos = a * self.detect_blue(image)
         circle2Pos = a * self.detect_green(image)
         circle3Pos = a * self.detect_red(image)
-	targetPos = self.detect_target(image)
-	#print("YELLOW: ", center)
-	#print("BLUE: ", circle1Pos)
-	#print("GREEN: ", circle2Pos)
-	#print("RED: ", circle3Pos)
-	#print("ORANGE: ", targetPos)
+
         # Solve using trigonometry
         ja1 = np.arctan2(center[0] - circle1Pos[0], center[1] - circle1Pos[1])
         ja2 = np.arctan2(circle1Pos[0] - circle2Pos[0], circle1Pos[1] - circle2Pos[1]) - ja1
         ja3 = np.arctan2(circle2Pos[0] - circle3Pos[0], circle2Pos[1] - circle3Pos[1]) - ja2 - ja1
         return np.array([ja1, ja2, ja3])
 
-
-        # In this method you can focus on detecting the rotation of link 1
-
-    def detect_l1(self, image, quadrant):
-        # find the center of the link
-        circle1Pos = self.detect_yellow(image)
-        circle2Pos = self.detect_blue(image)
-        center = (circle1Pos + circle2Pos) / 2
-
-        # Isolate the region of interest in the thresholded image
-        # (select an 160 by 160 window around the center of the link)
-        mask = cv2.inRange(image, (0, 0, 0), (1, 1, 1))
-        ROI = mask[center[1] - self.target.shape[0] / 2: (center[1] + self.target.shape[0] / 2) + 1,
-              center[0] - self.target.shape[1] / 2: (center[0] + self.target.shape[1] / 2) + 1]
-        ROI = ROI[0:self.target.shape[0], 0:self.target.shape[1]]  # making sure it has the same size as the template
-
-        # Apply the distance transform
-        dist = cv2.distanceTransform(cv2.bitwise_not(ROI), cv2.DIST_L2, 0)
-
-        # rotate the template by small step sizes around the angles that was already estimated from lab 1 and compare
-        # it with the cropped image of the link
-        sumlist = np.array([])
-        step = 1  # degree increment in the search
-        rows, cols = self.target.shape
-        quadrant = quadrant - 90  # there is  90 degree difference between the robot frame and frame for rotating the
-        # template
-        angle_iteration = np.arange(quadrant[0], quadrant[1], step)
-        for i in angle_iteration:
-            # Rotate the template to the desired rotation configuration
-            M = cv2.getRotationMatrix2D((cols / 2, rows / 2), i, 1)
-            # Apply rotation to the template
-            rotatedTemplate = cv2.warpAffine(self.target, M, (cols, rows))
-            # Combine the template and region of interest together to obtain only the values that are inside the template
-            img = dist * rotatedTemplate
-            # Sum the distances and append to the list
-            sumlist = np.append(sumlist, np.sum(img))
-
-        # Once all configurations have been searched then select the one with the smallest distance and convert
-        # to radians.
-        return (angle_iteration[np.argmin(sumlist)] * np.pi) / 180.0
 
     # Recieve data, process it, and publish
     def callback2(self, data):
@@ -215,14 +169,19 @@ class image_converter:
         self.joints = Float64MultiArray()
         self.joints.data = a
 
-        self.target = Float64MultiArray()
-        self.target.data = self.detect_target(self.cv_image2)
-
+        target = self.detect_target(self.cv_image2)
+        self.x = Float64()
+        self.x.data = target[0]
+	#print(self.x.data)
+	
+	self.z = Float64()
+        self.z.data = target[1]
         # Publish the results
         try:
             self.image_pub2.publish(self.bridge.cv2_to_imgmsg(self.cv_image2, "bgr8"))
             self.joints_pub2.publish(self.joints)
-	    self.target_pos2.publish(self.target)
+	    self.target_x.publish(self.x)
+	    self.target_z_2.publish(self.z)
             #print(a)
         except CvBridgeError as e:
             print(e)

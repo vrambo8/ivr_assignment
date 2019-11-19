@@ -23,8 +23,9 @@ class image_converter:
         self.image_sub1 = rospy.Subscriber("/camera1/robot/image_raw", Image, self.callback1)
         # initialize a publisher to send joints' angular position to a topic called joints_pos
         self.joints_pub1 = rospy.Publisher("joints_pos1", Float64MultiArray, queue_size=10)
-        # initialize a publisher to send target z, x position
-        self.target_pos1 = rospy.Publisher("target_pos1", Float64MultiArray, queue_size=10)
+        # initialize a publisher to send target x position
+        self.target_y = rospy.Publisher("target_y", Float64, queue_size=10)
+	self.target_z_1 = rospy.Publisher("target_z_1", Float64, queue_size=10)
         # initialize the bridge between openCV and ROS
         self.bridge = CvBridge()
 
@@ -159,8 +160,8 @@ class image_converter:
             print(e)
 
         # Uncomment if you want to save the image
-        isolated_image = cv2.inRange(cv2.imread('image_copy.png'), (57, 100, 120), (99, 190, 227))
-        cv2.imwrite('image_copy_isolated.png', isolated_image)
+        #isolated_image = cv2.inRange(cv2.imread('image_copy.png'), (57, 100, 120), (99, 190, 227))
+        #cv2.imwrite('image_copy_isolated.png', isolated_image)
         # cv2.imwrite('crop_target_isolated.png', isolated_image)
         # cv2.imwrite('image_copy.png', self.cv_image1)
 
@@ -170,16 +171,23 @@ class image_converter:
 
         self.joints = Float64MultiArray()
         self.joints.data = a
-
-        self.target = Float64MultiArray()
-        self.target.data = self.detect_target(self.cv_image1)
+	
+	target = self.detect_target(self.cv_image1)
+        self.y = Float64()
+        self.y.data = target[0]
+	#print(self.y.data)
+	
+	self.z = Float64()
+        self.z.data = target[1]
+	#print(self.z.data)
 
         # Publish the results
         try:
             self.image_pub1.publish(self.bridge.cv2_to_imgmsg(self.cv_image1, "bgr8"))
             self.joints_pub1.publish(self.joints)
-            self.target_pos1.publish(self.target)
-            print(a)
+            self.target_y.publish(self.y)
+	    self.target_z_1.publish(self.z)
+            #print(a)
         except CvBridgeError as e:
             print(e)
 
