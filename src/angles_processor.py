@@ -29,7 +29,7 @@ class Server:
         if self.angles1 is not None and self.angles2 is not None:
             print("Angles1: ", self.angles1.data)
             print("Angles2: ", self.angles2.data)
-	    print("Average: ", np.array([np.mean([i, j]) for (i, j) in zip(self.angles1.data, self.angles2.data)]))
+	    print("Average: ", np.array([np.max([np.abs(i), np.abs(j)]) for (i, j) in zip(self.angles1.data, self.angles2.data)]))
 	    print()	
 	
 
