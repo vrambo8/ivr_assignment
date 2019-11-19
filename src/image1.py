@@ -23,8 +23,8 @@ class image_converter:
         self.image_sub1 = rospy.Subscriber("/camera1/robot/image_raw", Image, self.callback1)
         # initialize a publisher to send joints' angular position to a topic called joints_pos
         self.joints_pub1 = rospy.Publisher("joints_pos1", Float64MultiArray, queue_size=10)
-	# initialize a publisher to send target z, x position 
-	self.target_pos1 = rospy.Publisher("target_pos1", Float64MultiArray, queue_size=10)
+        # initialize a publisher to send target z, x position
+        self.target_pos1 = rospy.Publisher("target_pos1", Float64MultiArray, queue_size=10)
         # initialize the bridge between openCV and ROS
         self.bridge = CvBridge()
 
@@ -109,16 +109,16 @@ class image_converter:
 
     def detect_target(self, image):
         mask = cv2.inRange(image, (57, 100, 120), (99, 190, 227))
-        kernel = np.ones((5,5), np.uint8)
+        kernel = np.ones((5, 5), np.uint8)
         mask = cv2.dilate(mask, kernel, iterations=3)
-	#cv2.imshow('mask', mask)
+        # cv2.imshow('mask', mask)
         _, contours, _ = cv2.findContours(mask.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-	maxArea = 0
-	for c in contours:
-		if (cv2.contourArea(c) > maxArea):
-			maxArea = cv2.contourArea(c)
-			sphere = c
-	M = cv2.moments(sphere)
+        maxArea = 0
+        for c in contours:
+            if (cv2.contourArea(c) > maxArea):
+                maxArea = cv2.contourArea(c)
+                sphere = c
+        M = cv2.moments(sphere)
         try:
             cx = int(M['m10'] / M['m00'])
         except ZeroDivisionError:
@@ -127,13 +127,13 @@ class image_converter:
             cy = int(M['m01'] / M['m00'])
         except ZeroDivisionError:
             return None
-	
-	a = self.pixel2meter(image)
-	center = a * self.detect_yellow(image)
+
+        a = self.pixel2meter(image)
+        center = a * self.detect_yellow(image)
         target = a * np.array([cx, cy])
-	#print("YELLOW: ", a * self.detect_yellow(image))
-	#print("TARGET: ", a * np.array([cx, cy]))
-	dist = np.abs([target[0] - center[0], target[1] - center[1]])
+        # print("YELLOW: ", a * self.detect_yellow(image))
+        # print("TARGET: ", a * np.array([cx, cy]))
+        dist = np.abs([target[0] - center[0], target[1] - center[1]])
         return dist
 
     # Calculate the relevant joint angles from the image
@@ -159,10 +159,10 @@ class image_converter:
             print(e)
 
         # Uncomment if you want to save the image
-	isolated_image = cv2.inRange(cv2.imread('image_copy.png'), (57, 100, 120), (99, 190, 227))
-	cv2.imwrite('image_copy_isolated.png', isolated_image)
-	#cv2.imwrite('crop_target_isolated.png', isolated_image)
-        #cv2.imwrite('image_copy.png', self.cv_image1)
+        isolated_image = cv2.inRange(cv2.imread('image_copy.png'), (57, 100, 120), (99, 190, 227))
+        cv2.imwrite('image_copy_isolated.png', isolated_image)
+        # cv2.imwrite('crop_target_isolated.png', isolated_image)
+        # cv2.imwrite('image_copy.png', self.cv_image1)
 
         a = self.detect_joint_angles(self.cv_image1)
         cv2.imshow('window1', self.cv_image1)
@@ -171,14 +171,14 @@ class image_converter:
         self.joints = Float64MultiArray()
         self.joints.data = a
 
-	self.target = Float64MultiArray()
-	self.target.data = self.detect_target(self.cv_image1)
+        self.target = Float64MultiArray()
+        self.target.data = self.detect_target(self.cv_image1)
 
         # Publish the results
         try:
             self.image_pub1.publish(self.bridge.cv2_to_imgmsg(self.cv_image1, "bgr8"))
             self.joints_pub1.publish(self.joints)
-	    self.target_pos1.publish(self.target)
+            self.target_pos1.publish(self.target)
             print(a)
         except CvBridgeError as e:
             print(e)
