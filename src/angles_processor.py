@@ -12,31 +12,52 @@ from sensor_msgs.msg import Image
 from std_msgs.msg import Float64MultiArray, Float64
 from cv_bridge import CvBridge, CvBridgeError
 
+
 class Server:
     def __init__(self):
         self.zs1 = None
-	self.ys = None
-        self.angles2 = None
+        self.ys = None
+        self.zs2 = None
+        self.xs = None
 
     def image1_callback_y(self, msg):
         self.ys = msg
-        self.compute_average()
-	
-    def image1_callback_z1(self, msg):
+        self.calculate_angles()
+
+    def image1_callback_z(self, msg):
         self.zs1 = msg
-        self.compute_average()
+        self.calculate_angles()
 
-    def image2_callback(self, msg):
-        self.angles2 = msg
-        self.compute_average()
+    def image2_callback_x(self, msg):
+        self.xs = msg
+        self.calculate_angles()
 
-    def compute_average(self):
-        if self.zs1 is not None and self.ys is not None and self.angles2 is not None:
-            print("Angles1: ", zip(self.ys.data, self.zs1.data))
-            print("Angles2: ", self.angles2.data)
-	    #print("Average: ", np.array([np.max([np.abs(i), np.abs(j)]) for (i, j) in zip(self.angles1.data, self.angles2.data)]))
-	    print()	
-	
+    def image2_callback_z(self, msg):
+        self.zs2 = msg
+        self.calculate_angles()
+
+    def calculate_angles(self):
+        if self.zs1 is not None and self.ys is not None and self.zs2 is not None and self.xs is not None:
+            print("Image1: ", zip(self.ys.data, self.zs1.data))
+            print("Image2: ", zip(self.xs.data, self.zs2.data))
+            mean_zs = [np.mean(z1, z2) for (z1, z2) in zip(self.zs1.data, self.zs2.data)]
+            center = [self.xs[0], self.ys[0], mean_zs[0]]
+            circle1Pos = [self.xs[1], self.ys[1], mean_zs[1]]
+            circle2Pos = [self.xs[2], self.ys[2], mean_zs[2]]
+            circle3Pos = [self.xs[3], self.ys[3], mean_zs[3]]
+
+            ja1 = self.detect_joint_angle(center, circle1Pos)
+            ja2 = self.detect_joint_angle(circle1Pos, circle2Pos) - ja1
+            ja3 = self.detect_joint_angle(circle2Pos, circle3Pos) - ja2 - ja1
+
+            print("Predicted: ",  [ja1, ja2, ja3])
+
+    @staticmethod
+    def detect_joint_angle(pos1, pos2):
+        mag1 = np.linalg.norm(pos1)
+        mag2 = np.linalg.norm(pos2)
+        return np.arccos(np.dot(pos1, pos2), (mag1*mag2))
+
 
 if __name__ == "__main__":
     server = Server()

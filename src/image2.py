@@ -22,12 +22,12 @@ class image_converter:
         # initialize a subscriber to recieve messages rom a topic named /robot/camera1/image_raw and use callback function to recieve data
         self.image_sub2 = rospy.Subscriber("/camera2/robot/image_raw", Image, self.callback2)
         # initialize a publisher to send joints' angular position to a topic called joints_pos
-        self.joints_pub2 = rospy.Publisher("joints_pos2", Float64MultiArray, queue_size=10)
-	# initialize a publisher to send target z, x position 
-	self.target_x = rospy.Publisher("target_x", Float64, queue_size=10)
-	self.target_z_2 = rospy.Publisher("target_z_2", Float64, queue_size=10)
+        self.joints_pub_x = rospy.Publisher("joints_pos_x", Float64MultiArray, queue_size=10)
+        self.joints_pub_z_2 = rospy.Publisher("joints_pos_z_2", Float64MultiArray, queue_size=10)
+        # initialize a publisher to send target z, x position
+        self.target_x = rospy.Publisher("target_x", Float64, queue_size=10)
+        self.target_z_2 = rospy.Publisher("target_z_2", Float64, queue_size=10)
         self.bridge = CvBridge()
-
 
     def detect_red(self, image):
         # Isolate the blue colour in the image as a binary image
@@ -88,7 +88,7 @@ class image_converter:
         mask = cv2.inRange(image, (0, 100, 100), (0, 255, 255))
         kernel = np.ones((5, 5), np.uint8)
         mask = cv2.dilate(mask, kernel, iterations=3)
-	#cv2.imshow('mask2', mask)
+        # cv2.imshow('mask2', mask)
         M = cv2.moments(mask)
         try:
             cx = int(M['m10'] / M['m00'])
@@ -103,16 +103,16 @@ class image_converter:
 
     def detect_target(self, image):
         mask = cv2.inRange(image, (57, 100, 120), (99, 190, 227))
-        kernel = np.ones((5,5), np.uint8)
+        kernel = np.ones((5, 5), np.uint8)
         mask = cv2.dilate(mask, kernel, iterations=3)
-	#cv2.imshow('mask', mask)
+        # cv2.imshow('mask', mask)
         _, contours, _ = cv2.findContours(mask.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-	maxArea = 0
-	for c in contours:
-		if (cv2.contourArea(c) > maxArea):
-			maxArea = cv2.contourArea(c)
-			sphere = c
-	M = cv2.moments(sphere)
+        maxArea = 0
+        for c in contours:
+            if (cv2.contourArea(c) > maxArea):
+                maxArea = cv2.contourArea(c)
+                sphere = c
+        M = cv2.moments(sphere)
         try:
             cx = int(M['m10'] / M['m00'])
         except ZeroDivisionError:
@@ -121,12 +121,12 @@ class image_converter:
             cy = int(M['m01'] / M['m00'])
         except ZeroDivisionError:
             return None
-	
-	a = self.pixel2meter(image)
-	center = a * self.detect_yellow(image)
+
+        a = self.pixel2meter(image)
+        center = a * self.detect_yellow(image)
         target = a * np.array([cx, cy])
-	
-	dist = np.abs([target[0] - center[0], target[1] - center[1]])
+
+        dist = np.abs([target[0] - center[0], target[1] - center[1]])
         return dist
 
     def pixel2meter(self, image):
@@ -150,8 +150,9 @@ class image_converter:
         ja1 = np.arctan2(center[0] - circle1Pos[0], center[1] - circle1Pos[1])
         ja2 = np.arctan2(circle1Pos[0] - circle2Pos[0], circle1Pos[1] - circle2Pos[1]) - ja1
         ja3 = np.arctan2(circle2Pos[0] - circle3Pos[0], circle2Pos[1] - circle3Pos[1]) - ja2 - ja1
-        return np.array([ja1, ja2, ja3])
-
+        #return np.array([ja1, ja2, ja3])
+        return np.array([center[0], circle1Pos[0], circle2Pos[0], circle3Pos[0]]), np.array(
+            [center[1], circle1Pos[1], circle2Pos[1], circle3Pos[1]])
 
     # Recieve data, process it, and publish
     def callback2(self, data):
@@ -161,28 +162,33 @@ class image_converter:
         except CvBridgeError as e:
             print(e)
         # Uncomment if you want to save the image
-        cv2.imwrite('image_copy.png', self.cv_image2)
-        a = self.detect_joint_angles(self.cv_image2)
+
+
+        xs, zs = self.detect_joint_angles(self.cv_image2)
         im2 = cv2.imshow('window2', self.cv_image2)
         cv2.waitKey(1)
 
-        self.joints = Float64MultiArray()
-        self.joints.data = a
+        self.joints_x = Float64MultiArray()
+        self.joints_x.data = xs
+
+        self.joints_z = Float64MultiArray()
+        self.joints_z.data = zs
 
         target = self.detect_target(self.cv_image2)
         self.x = Float64()
         self.x.data = target[0]
-	#print(self.x.data)
-	
-	self.z = Float64()
+        # print(self.x.data)
+
+        self.z = Float64()
         self.z.data = target[1]
         # Publish the results
         try:
             self.image_pub2.publish(self.bridge.cv2_to_imgmsg(self.cv_image2, "bgr8"))
-            self.joints_pub2.publish(self.joints)
-	    self.target_x.publish(self.x)
-	    self.target_z_2.publish(self.z)
-            #print(a)
+            self.joints_pub_x.publish(self.joints_x)
+            self.joints_pub_z_2.publish(self.joints_z)
+            self.target_x.publish(self.x)
+            self.target_z_2.publish(self.z)
+            # print(a)
         except CvBridgeError as e:
             print(e)
 
