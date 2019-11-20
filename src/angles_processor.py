@@ -40,11 +40,14 @@ class Server:
         if self.zs1 is not None and self.ys is not None and self.zs2 is not None and self.xs is not None:
             print("Image1: ", zip(self.ys.data, self.zs1.data))
             print("Image2: ", zip(self.xs.data, self.zs2.data))
-            mean_zs = [np.mean(z1, z2) for (z1, z2) in zip(self.zs1.data, self.zs2.data)]
-            center = [self.xs[0], self.ys[0], mean_zs[0]]
-            circle1Pos = [self.xs[1], self.ys[1], mean_zs[1]]
-            circle2Pos = [self.xs[2], self.ys[2], mean_zs[2]]
-            circle3Pos = [self.xs[3], self.ys[3], mean_zs[3]]
+            mean_zs = [np.mean([z1, z2]) for (z1, z2) in zip(self.zs1.data, self.zs2.data)]
+            xs = self.xs.data
+            ys = self.ys.data
+
+            center = [xs[0], ys[0], mean_zs[0]]
+            circle1Pos = [xs[1], ys[1], mean_zs[1]]
+            circle2Pos = [xs[2], ys[2], mean_zs[2]]
+            circle3Pos = [xs[3], ys[3], mean_zs[3]]
 
             ja1 = self.detect_joint_angle(center, circle1Pos)
             ja2 = self.detect_joint_angle(circle1Pos, circle2Pos) - ja1
@@ -64,7 +67,8 @@ if __name__ == "__main__":
 
     rospy.init_node('angles')
     rospy.Subscriber("/joints_pos_y", Float64MultiArray, server.image1_callback_y)
-    rospy.Subscriber("/joints_pos_z_1", Float64MultiArray, server.image1_callback_z1)
-    rospy.Subscriber("/joints_pos2", Float64MultiArray, server.image2_callback)
+    rospy.Subscriber("/joints_pos_z_1", Float64MultiArray, server.image1_callback_z)
+    rospy.Subscriber("/joints_pos_x", Float64MultiArray, server.image2_callback_x)
+    rospy.Subscriber("/joints_pos_z_2", Float64MultiArray, server.image2_callback_z)
 
     rospy.spin()
