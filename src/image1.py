@@ -22,7 +22,8 @@ class image_converter:
         # initialize a subscriber to recieve messages rom a topic named /robot/camera1/image_raw and use callback function to recieve data
         self.image_sub1 = rospy.Subscriber("/camera1/robot/image_raw", Image, self.callback1)
         # initialize a publisher to send joints' angular position to a topic called joints_pos
-        self.joints_pub1 = rospy.Publisher("joints_pos1", Float64MultiArray, queue_size=10)
+        self.joints_pub_y = rospy.Publisher("joints_pos_y", Float64MultiArray, queue_size=10)
+	self.joints_pub_z_1 = rospy.Publisher("joints_pos_z_1", Float64MultiArray, queue_size=10)
         # initialize a publisher to send target x position
         self.target_y = rospy.Publisher("target_y", Float64, queue_size=10)
 	self.target_z_1 = rospy.Publisher("target_z_1", Float64, queue_size=10)
@@ -149,7 +150,8 @@ class image_converter:
         ja1 = np.arctan2(center[0] - circle1Pos[0], center[1] - circle1Pos[1])
         ja2 = np.arctan2(circle1Pos[0] - circle2Pos[0], circle1Pos[1] - circle2Pos[1]) - ja1
         ja3 = np.arctan2(circle2Pos[0] - circle3Pos[0], circle2Pos[1] - circle3Pos[1]) - ja2 - ja1
-        return np.array([ja1, ja2, ja3])
+        #return np.array([ja1, ja2, ja3])
+	return np.array([center[0], circle1Pos[0], circle2Pos[0], circle3Pos[0]]), np.array([center[1], circle1Pos[1], circle2Pos[1], circle3Pos[1]])
 
     # Recieve data from camera 1, process it, and publish
     def callback1(self, data):
@@ -165,12 +167,15 @@ class image_converter:
         # cv2.imwrite('crop_target_isolated.png', isolated_image)
         # cv2.imwrite('image_copy.png', self.cv_image1)
 
-        a = self.detect_joint_angles(self.cv_image1)
+        ys, zs = self.detect_joint_angles(self.cv_image1)
         cv2.imshow('window1', self.cv_image1)
         cv2.waitKey(1)
 
-        self.joints = Float64MultiArray()
-        self.joints.data = a
+        self.joints_y = Float64MultiArray()
+        self.joints_y.data = ys
+
+	self.joints_z = Float64MultiArray()
+        self.joints_z.data = zs
 	
 	target = self.detect_target(self.cv_image1)
         self.y = Float64()
@@ -184,7 +189,8 @@ class image_converter:
         # Publish the results
         try:
             self.image_pub1.publish(self.bridge.cv2_to_imgmsg(self.cv_image1, "bgr8"))
-            self.joints_pub1.publish(self.joints)
+            self.joints_pub_y.publish(self.joints_y)
+	    self.joints_pub_z_1.publish(self.joints_z)
             self.target_y.publish(self.y)
 	    self.target_z_1.publish(self.z)
             #print(a)
