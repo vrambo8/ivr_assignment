@@ -28,8 +28,8 @@ class Server:
 
     def compute_average(self):
         if self.z1 is not None and self.z2 is not None:
-            #print("z1: ", self.z1.data)
-            #print("z2: ", self.z2.data)
+            print("z1: ", self.z1.data)
+            print("z2: ", self.z2.data)
 	    print("Average: ", np.mean([self.z1.data, self.z2.data]))
 	    print()
 	    mean_z = Float64()
