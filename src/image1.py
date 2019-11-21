@@ -141,7 +141,8 @@ class image_converter:
     # Calculate the relevant joint angles from the image
     def detect_joint_angles(self, image):
         a = self.pixel2meter(image)
-	print("a:" ,a)
+        print("a:", a)
+
         # Obtain the centre of each coloured blob
         center = a * self.detect_yellow(image)
         circle1Pos = a * self.detect_blue(image)
@@ -155,45 +156,46 @@ class image_converter:
         return np.array([center[0], circle1Pos[0], circle2Pos[0], circle3Pos[0]]), np.array(
             [center[1], circle1Pos[1], circle2Pos[1], circle3Pos[1]])
 
-    # Recieve data from camera 1, process it, and publish
-    def callback1(self, data):
-        # Recieve the image
-        try:
-            self.cv_image1 = self.bridge.imgmsg_to_cv2(data, "bgr8")
-        except CvBridgeError as e:
-            print(e)
 
-        # Uncomment if you want to save the image
+# Recieve data from camera 1, process it, and publish
+def callback1(self, data):
+    # Recieve the image
+    try:
+        self.cv_image1 = self.bridge.imgmsg_to_cv2(data, "bgr8")
+    except CvBridgeError as e:
+        print(e)
 
-        ys, zs = self.detect_joint_angles(self.cv_image1)
-        cv2.imshow('window1', self.cv_image1)
-        cv2.waitKey(1)
+    # Uncomment if you want to save the image
 
-        self.joints_y = Float64MultiArray()
-        self.joints_y.data = ys
+    ys, zs = self.detect_joint_angles(self.cv_image1)
+    cv2.imshow('window1', self.cv_image1)
+    cv2.waitKey(1)
 
-        self.joints_z = Float64MultiArray()
-        self.joints_z.data = zs
+    self.joints_y = Float64MultiArray()
+    self.joints_y.data = ys
 
-        target = self.detect_target(self.cv_image1)
-        self.y = Float64()
-        self.y.data = target[0]
-        # print(self.y.data)
+    self.joints_z = Float64MultiArray()
+    self.joints_z.data = zs
 
-        self.z = Float64()
-        self.z.data = target[1]
-        # print(self.z.data)
+    target = self.detect_target(self.cv_image1)
+    self.y = Float64()
+    self.y.data = target[0]
+    # print(self.y.data)
 
-        # Publish the results
-        try:
-            self.image_pub1.publish(self.bridge.cv2_to_imgmsg(self.cv_image1, "bgr8"))
-            self.joints_pub_y.publish(self.joints_y)
-            self.joints_pub_z_1.publish(self.joints_z)
-            self.target_y.publish(self.y)
-            self.target_z_1.publish(self.z)
-            # print(a)
-        except CvBridgeError as e:
-            print(e)
+    self.z = Float64()
+    self.z.data = target[1]
+    # print(self.z.data)
+
+    # Publish the results
+    try:
+        self.image_pub1.publish(self.bridge.cv2_to_imgmsg(self.cv_image1, "bgr8"))
+        self.joints_pub_y.publish(self.joints_y)
+        self.joints_pub_z_1.publish(self.joints_z)
+        self.target_y.publish(self.y)
+        self.target_z_1.publish(self.z)
+        # print(a)
+    except CvBridgeError as e:
+        print(e)
 
 
 # call the class

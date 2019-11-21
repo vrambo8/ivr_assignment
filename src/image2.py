@@ -150,7 +150,7 @@ class image_converter:
         ja1 = np.arctan2(center[0] - circle1Pos[0], center[1] - circle1Pos[1])
         ja2 = np.arctan2(circle1Pos[0] - circle2Pos[0], circle1Pos[1] - circle2Pos[1]) - ja1
         ja3 = np.arctan2(circle2Pos[0] - circle3Pos[0], circle2Pos[1] - circle3Pos[1]) - ja2 - ja1
-        #return np.array([ja1, ja2, ja3])
+        # return np.array([ja1, ja2, ja3])
         return np.array([center[0], circle1Pos[0], circle2Pos[0], circle3Pos[0]]), np.array(
             [center[1], circle1Pos[1], circle2Pos[1], circle3Pos[1]])
 
@@ -162,7 +162,6 @@ class image_converter:
         except CvBridgeError as e:
             print(e)
         # Uncomment if you want to save the image
-
 
         xs, zs = self.detect_joint_angles(self.cv_image2)
         im2 = cv2.imshow('window2', self.cv_image2)
