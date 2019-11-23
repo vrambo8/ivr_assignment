@@ -1,11 +1,10 @@
+#!/usr/bin/env python
+
 from scipy.optimize import least_squares
-import sympy as sym
 import numpy as np
 
 
-
 def get_effector_position(joint_angles):
-
     initial_theta = [-np.pi / 2, -np.pi / 2, 0, 0]
     theta = [i + t for (i, t) in zip(initial_theta, joint_angles)]
 
@@ -30,7 +29,7 @@ def equations(joint_angles, actual_red):
 
 
 def solve_angles(actual_red, joint_angles=np.zeros(4)):
-    return least_squares(equations, joint_angles, args=(actual_red,))
+    return least_squares(equations, joint_angles, args=(actual_red,)).x
 
 
 def create_trans_matrix(row):
@@ -49,18 +48,20 @@ def create_trans_matrix(row):
 
 
 def find_angle_joint_1(pos1, pos2):
-    mag1 = np.linalg.norm(pos1)
-    mag2 = np.linalg.norm(pos2)
+    pos1.append(0)
+    pos2.append(0)
     dot = np.dot(pos1, pos2)
     cross = np.cross(pos1, pos2)
-    angle = np.arccos(dot / (mag1 * mag2))
-    return np.arctan2(len(cross))
+    print("CROSS: ", cross)
+    angle = np.arctan2(np.linalg.norm(cross), dot)
+    if (cross[2] < 0): angle = -angle
+    return angle
 
 
 if __name__ == "__main__":
-    prev_red = [-1.43099, 2.35157, 6.49115] #[0.074, -0.0375, 6.595]
+    prev_red = [-1.43099, 2.35157, 6.49115]  # [0.074, -0.0375, 6.595]
     actual_red = [1.5773, 2.06659, 6.428522]
-    angles = solve_angles(actual_red, [0, 0, 0, 0])
-    print(angles.x)
-    print(get_effector_position(angles.x))
-    print(find_angle_joint_1(actual_red[:2], prev_red[:2]))
+    angles = solve_angles(actual_red, [0, 0.5, 0, 0])
+    z_displacement = find_angle_joint_1(prev_red[:2], actual_red[:2])
+    angles[0] += z_displacement
+    print("Predicted angles: ", angles)
