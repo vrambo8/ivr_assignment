@@ -12,7 +12,7 @@ from sensor_msgs.msg import Image
 from std_msgs.msg import Float64MultiArray, Float64
 from cv_bridge import CvBridge, CvBridgeError
 
-from .inverse_kinematics import *
+from inverse_kinematics import *
 
 
 class Server:
@@ -21,24 +21,22 @@ class Server:
         self.ys = None
         self.zs2 = None
         self.xs = None
-        self.previous_angles = np.zeros(0)
-        self.previous_effector_pos = np.array([0, 0, 7])
 
     def image1_callback_y(self, msg):
         self.ys = msg
-        self.calculate_angles()
+        #self.calculate_angles()
 
     def image1_callback_z(self, msg):
         self.zs1 = msg
-        self.calculate_angles()
+        #self.calculate_angles()
 
     def image2_callback_x(self, msg):
         self.xs = msg
-        self.calculate_angles()
+        #self.calculate_angles()
 
     def image2_callback_z(self, msg):
         self.zs2 = msg
-        self.calculate_angles()
+        #self.calculate_angles()
 
     def calculate_angles(self):
         if self.zs1 is not None and self.ys is not None and self.zs2 is not None and self.xs is not None:
@@ -49,25 +47,33 @@ class Server:
             ys = self.ys.data
 
             # joint positions
-            effector_pos = np.array([xs[3], ys[3], mean_zs[3]])
-            print("3: ", effector_pos)
+            effector_pos = np.array([xs[0], ys[0], mean_zs[0]]) - np.array([xs[3], ys[3], mean_zs[3]])
+            print("Current Position: ", effector_pos)
 
             predicted_angles = solve_angles(effector_pos)
+		
+	    previous_effector_pos = np.loadtxt('previous_effector_pos.txt')
+            print("Previous Position: ", previous_effector_pos)
+    	    previous_angles = np.loadtxt('previous_angles.txt')
+	    print("Previous Angles: ", previous_angles)
+	    print("Current Angles: ", predicted_angles)
+            if self.check_z_coordinate(previous_effector_pos[2], effector_pos[2]):
+                predicted_angles[0] += find_angle_joint_1(previous_effector_pos[:2], effector_pos[:2])
 
-            if self.check_z_coordinate(effector_pos[2]):
-                predicted_angles[0] += find_angle_joint_1(self.previous_effector_pos[:2], effector_pos[:2])
+            print("Adjusted Current Angles: ", predicted_angles)
 
-            print(predicted_angles)
+            np.savetxt('previous_effector_pos.txt', effector_pos)
+	    np.savetxt('previous_angles.txt', predicted_angles)
 
-            self.previous_effector_pos = effector_pos
-            self.previous_angles = predicted_angles
-
-    def check_z_coordinate(self, predicted_z):
-        diff = np.abs(self.previous_effector_pos[2] - predicted_z)
+    @staticmethod
+    def check_z_coordinate(previous_effector_pos, predicted_z):
+        diff = np.abs(previous_effector_pos - predicted_z)
         return diff <= 0.8
 
 
 if __name__ == "__main__":
+    #np.savetxt('previous_effector_pos.txt', [0,0,7])
+    #np.savetxt('previous_angles.txt', [0,0,0])
     server = Server()
 
     rospy.init_node('angles')
@@ -77,3 +83,5 @@ if __name__ == "__main__":
     rospy.Subscriber("/joints_pos_z_2", Float64MultiArray, server.image2_callback_z)
 
     rospy.spin()
+
+    server.calculate_angles()

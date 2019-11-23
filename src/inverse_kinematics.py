@@ -48,11 +48,10 @@ def create_trans_matrix(row):
 
 
 def find_angle_joint_1(pos1, pos2):
-    pos1.append(0)
-    pos2.append(0)
+    pos1 = np.append(pos1, 0)
+    pos2 = np.append(pos2, 0)
     dot = np.dot(pos1, pos2)
     cross = np.cross(pos1, pos2)
-    print("CROSS: ", cross)
     angle = np.arctan2(np.linalg.norm(cross), dot)
     if (cross[2] < 0): angle = -angle
     return angle
