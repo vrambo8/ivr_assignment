@@ -58,7 +58,7 @@ class Server:
             joint1 = center - circle1Pos
             ja1 = self.detect_joint_angle(np.array([0, 0, 1]), joint1)
             joint2 = circle1Pos - circle2Pos
-            #ja2 = self.detect_joint_angle(joint1, joint2)
+            #ja2 = self.find_angle_joint_1(joint1, joint2)
             joint3 = circle2Pos - circle3Pos
             ja3 = self.detect_joint_angle(joint2, joint3)
 
@@ -73,12 +73,12 @@ class Server:
 
             print("Predicted: ", [ja1, blue2_2, blue3_2, ja3])
 
-    @staticmethod
-    def detect_joint_angle(pos1, pos2):
-        mag1 = np.linalg.norm(pos1)
-        mag2 = np.linalg.norm(pos2)
-        dot = np.dot(pos1, pos2)
-        return np.arccos(dot / (mag1 * mag2))
+
+def detect_joint_angle(pos1, pos2):
+    mag1 = np.linalg.norm(pos1)
+    mag2 = np.linalg.norm(pos2)
+    dot = np.dot(pos1, pos2)
+    return np.arccos(dot / (mag1 * mag2))
 
 
 if __name__ == "__main__":
