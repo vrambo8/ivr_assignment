@@ -68,7 +68,7 @@ class Server:
     @staticmethod
     def check_z_coordinate(previous_effector_pos, predicted_z):
         diff = np.abs(previous_effector_pos - predicted_z)
-        return diff <= 0.8
+        return diff <= 0.5
 
 
 if __name__ == "__main__":
