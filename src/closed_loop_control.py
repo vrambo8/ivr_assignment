@@ -8,6 +8,7 @@ from std_msgs.msg import String
 from sensor_msgs.msg import Image
 from std_msgs.msg import Float64MultiArray, Float64
 from cv_bridge import CvBridge, CvBridgeError
+import message_filters
 
 from inverse_kinematics import *
 
@@ -18,8 +19,12 @@ class Server:
         self.ys = None
         self.zs2 = None
         self.xs = None
+	self.target_y = None
+	self.target_z1 = None
+	self.target_x = None
+	self.target_z2 = None
 
-        rospy.init_node('image_processing', anonymous=True)
+        rospy.init_node('closed_loop_control', anonymous=True)
         # initialize a publisher to send messages to a topic named image_topic
         self.image_pub = rospy.Publisher("image_topic", Image, queue_size=1)
         # initialize a publisher to send joints' angular position to a topic called joints_pos
@@ -32,6 +37,7 @@ class Server:
         self.robot_joint1_pub = rospy.Publisher("/robot/joint1_position_controller/command", Float64, queue_size=10)
         self.robot_joint2_pub = rospy.Publisher("/robot/joint2_position_controller/command", Float64, queue_size=10)
         self.robot_joint3_pub = rospy.Publisher("/robot/joint3_position_controller/command", Float64, queue_size=10)
+	self.robot_joint4_pub = rospy.Publisher("/robot/joint4_position_controller/command", Float64, queue_size=10)
         # initialize the bridge between openCV and ROS
         self.bridge = CvBridge()
         # record the begining time
@@ -42,53 +48,42 @@ class Server:
         self.error = np.array([0.0, 0.0, 0.0], dtype='float64')
         self.error_d = np.array([0.0, 0.0, 0.0], dtype='float64')
 
-    def image1_callback_y(self, msg):
-        self.ys = msg
-        # self.calculate_angles()
 
-    def image1_callback_z(self, msg):
-        self.zs1 = msg
-        # self.calculate_angles()
-
-    def image2_callback_x(self, msg):
-        self.xs = msg
-        # self.calculate_angles()
-
-    def image2_callback_z(self, msg):
-        self.zs2 = msg
-        # self.calculate_angles()
-
-    def callback(self, data):
-        # Recieve the image
-        try:
-            cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
-        except CvBridgeError as e:
-            print(e)
-
-        # Perform image processing task (your code goes here)
-        # The image is loaded as cv_imag
-
-        # Uncomment if you want to save the image
-        # cv2.imwrite('image_copy.png', cv_image)
-
-        cv2.imshow('window', cv_image)
-        cv2.waitKey(3)
-
-        # publish robot joints angles (lab 1 and 2)
-        self.joints = Float64MultiArray()
-        self.joints.data = self.detect_joint_angles(cv_image)
-
-        # compare the estimated position of robot end-effector calculated from images with forward kinematics(lab 3)
-
+    def callback(self, ys, zs1, xs, zs2, target_y, target_z1, target_x, target_z2):
+        
+	self.ys = ys
+        self.zs1 = zs1
+        self.xs = xs
+        self.zs2 = zs2
+	self.target_y = target_y
+	self.target_z1 = target_z1
+	self.target_x = target_x
+	self.target_z2 = target_z2
+        
+   
         # send control commands to joints (lab 3)
-        q_d = self.control_closed(cv_image)
-        # q_d = self.control_open(cv_image)
+        q_d = self.closed_loop()
+	#if q_d is None: return
+	while q_d[0] > np.pi/2:
+	    q_d[0] -= np.pi
+	while q_d[0] < -np.pi/2:
+	    q_d[0] += np.pi
+
+	q_d[1] = min(q_d[1], np.pi)
+	q_d[1] = max(q_d[1], -np.pi)
+	q_d[2] = min(q_d[2], np.pi)
+	q_d[2] = max(q_d[2], -np.pi)
+	q_d[3] = min(q_d[3], np.pi)
+	q_d[3] = max(q_d[3], -np.pi)
+        
         self.joint1 = Float64()
         self.joint1.data = q_d[0]
         self.joint2 = Float64()
         self.joint2.data = q_d[1]
         self.joint3 = Float64()
-        self.joint3.data = q_d[2]
+        self.joint3.data = -q_d[2]
+	self.joint4 = Float64()
+        self.joint4.data = q_d[3]
 
         # Publishing the desired trajectory on a topic named trajectory(lab 3)
         x_d = self.trajectory()  # getting the desired trajectory
@@ -97,50 +92,61 @@ class Server:
 
         # Publish the results
         try:
-            self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "bgr8"))
-            self.joints_pub.publish(self.joints)
             self.trajectory_pub.publish(self.trajectory_desired)
             self.robot_joint1_pub.publish(self.joint1)
             self.robot_joint2_pub.publish(self.joint2)
             self.robot_joint3_pub.publish(self.joint3)
+	    self.robot_joint4_pub.publish(self.joint4)
         except CvBridgeError as e:
             print(e)
 
     def closed_loop(self):
-        if self.zs1 is not None and self.ys is not None and self.zs2 is not None and self.xs is not None:
-            # print("Image1: ", zip(self.ys.data, self.zs1.data))
-            # print("Image2: ", zip(self.xs.data, self.zs2.data))
+        if self.zs1 is not None and self.ys is not None and self.zs2 is not None and self.xs is not None and \
+		self.target_z1 is not None and self.target_z2 is not None and self.target_x is not None and self.target_y is not None:
+          
             mean_zs = [np.mean([z1, z2]) for (z1, z2) in zip(self.zs1.data, self.zs2.data)]
             xs = self.xs.data
             ys = self.ys.data
 
+	    mean_target_z = np.mean([self.target_z1.data, self.target_z2.data])
+            target_x = self.target_x.data
+            target_y = self.target_y.data
+	
+
             # joint positions
             effector_pos = np.array([xs[0], ys[0], mean_zs[0]]) - np.array([xs[3], ys[3], mean_zs[3]])
-            print("Current Position: ", effector_pos)
+	    green_pos = np.array([xs[0], ys[0], mean_zs[0]]) - np.array([xs[2], ys[2], mean_zs[2]])
 
             # P gain
             K_p = np.array([[10, 0, 0], [0, 10, 0], [0, 0, 10]])
-            # D gain
+            # D gain 
             K_d = np.array([[0.1, 0, 0], [0, 0.1, 0], [0, 0, 0.1]])
+
             # estimate time step
             cur_time = np.array([rospy.get_time()])
             dt = cur_time - self.time_previous_step
             self.time_previous_step = cur_time
+
             # robot end-effector position
             pos = effector_pos
+	    print(pos, " Effector")
             # desired trajectory
-            pos_d = self.trajectory()
+            pos_d = np.array([target_x, target_y, mean_target_z])
+	    print(pos_d, " Target")
             # estimate derivative of error
+
             self.error_d = ((pos_d - pos) - self.error) / dt
             # estimate error
             self.error = pos_d - pos
-            q = solve_angles(effector_pos) # estimate initial value of joints'
+	    pos = np.abs(effector_pos)
+	    green_pos = np.abs(green_pos)
+            q = solve_angles(pos, green_pos) # estimate initial value of joints'
 	    
             J_inv = np.linalg.pinv(self.jacobian(q))
-	     # calculating the psudeo inverse of Jacobian
+	     # calculating the pseudo inverse of Jacobian
             dq_d = np.dot(J_inv, (np.dot(K_d, self.error_d.transpose()) + np.dot(K_p, self.error.transpose())))  # control input (angular velocity of joints)
             q_d = q + (dt * dq_d)  # control input (angular position of joints)
-            return [q % 2*np.pi for q in q_d]
+            return [q for q in q_d]
 
     def trajectory(self):
 	cur_time = np.array([rospy.get_time() - self.time_trajectory])
@@ -199,10 +205,17 @@ class Server:
 if __name__ == "__main__":
     server = Server()
 
-    rospy.Subscriber("/joints_pos_y", Float64MultiArray, server.image1_callback_y)
-    rospy.Subscriber("/joints_pos_z_1", Float64MultiArray, server.image1_callback_z)
-    rospy.Subscriber("/joints_pos_x", Float64MultiArray, server.image2_callback_x)
-    rospy.Subscriber("/joints_pos_z_2", Float64MultiArray, server.image2_callback_z)
+    ys = message_filters.Subscriber("/joints_pos_y", Float64MultiArray)
+    zs1 = message_filters.Subscriber("/joints_pos_z_1", Float64MultiArray)
+    xs = message_filters.Subscriber("/joints_pos_x", Float64MultiArray)
+    zs2 = message_filters.Subscriber("/joints_pos_z_2", Float64MultiArray)
+    target_y = message_filters.Subscriber("/target_y", Float64)
+    target_z1 = message_filters.Subscriber("/target_z_1", Float64)
+    target_x = message_filters.Subscriber("/target_x", Float64)
+    target_z2 = message_filters.Subscriber("/target_z_2", Float64)
+
+    ts = message_filters.ApproximateTimeSynchronizer([ys, zs1, xs, zs2, target_y, target_z1, target_x, target_z2], 1, 0.1, allow_headerless=True)
+    ts.registerCallback(server.callback)
 
     rospy.spin()
 

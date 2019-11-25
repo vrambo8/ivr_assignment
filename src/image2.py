@@ -41,12 +41,12 @@ class image_converter:
         try:
             cx = int(M['m10'] / M['m00'])
         except ZeroDivisionError:
-            return None
+            return self.detect_green(image)
         try:
             cy = int(M['m01'] / M['m00'])
         except ZeroDivisionError:
-            return None
-        return np.array([cx, cy])
+            return self.detect_green(image)
+	return np.array([cx, cy])
 
         # Detecting the centre of the green circle
 
@@ -58,11 +58,11 @@ class image_converter:
         try:
             cx = int(M['m10'] / M['m00'])
         except ZeroDivisionError:
-            return None
+            return self.detect_blue(image)
         try:
             cy = int(M['m01'] / M['m00'])
         except ZeroDivisionError:
-            return None
+            return self.detect_blue(image)
         return np.array([cx, cy])
 
         # Detecting the centre of the blue circle
@@ -75,11 +75,11 @@ class image_converter:
         try:
             cx = int(M['m10'] / M['m00'])
         except ZeroDivisionError:
-            return None
+            return self.detect_green(image)
         try:
             cy = int(M['m01'] / M['m00'])
         except ZeroDivisionError:
-            return None
+            return self.detect_green(image)
         return np.array([cx, cy])
 
         # Detecting the centre of the yellow circle
@@ -93,11 +93,11 @@ class image_converter:
         try:
             cx = int(M['m10'] / M['m00'])
         except ZeroDivisionError:
-            return None
+            return self.detect_red(image)
         try:
             cy = int(M['m01'] / M['m00'])
         except ZeroDivisionError:
-            return None
+            return self.detect_red(image)
 
         return np.array([cx, cy])
 
@@ -122,18 +122,21 @@ class image_converter:
         except ZeroDivisionError:
             return None
 
-        a = self.pixel2meter(image)
+        a = 0.0380
+	print(a)
         center = a * self.detect_yellow(image)
         target = a * np.array([cx, cy])
-
+	print("YELLOW: ", a * self.detect_yellow(image))
+        print("TARGET: ", a * np.array([cx, cy]))
         dist = np.abs([target[0] - center[0], target[1] - center[1]])
+	print("DIST: ", dist)
         return dist
 
     def pixel2meter(self, image):
         # Obtain the centre of each coloured blob
         circle1Pos = self.detect_blue(image)
         circle2Pos = self.detect_green(image)
-        # find the distance between two circles
+        #find the distance between two circles
         dist = np.sum((circle1Pos - circle2Pos) ** 2)
         return 3 / np.sqrt(dist)
 

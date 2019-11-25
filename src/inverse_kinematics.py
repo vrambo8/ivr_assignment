@@ -22,37 +22,41 @@ def get_effector_position(joint_angles):
 
     return red_position
 
+def get_green_position(joint_angles):
+    initial_theta = [-np.pi / 2, -np.pi / 2, 0, 0]
+    theta = [i + t for (i, t) in zip(initial_theta, joint_angles)]
 
-def equations(joint_angles, actual_red):
+    DH = [[theta[0], - np.pi / 2, 2, 0], [theta[1], np.pi / 2, 0, 0],
+          [theta[2], -np.pi / 2, 0, 3]]
+
+    initial = np.array([0, 0, 0, 1])
+    final_matrix = create_trans_matrix(DH[0])
+
+    for row in DH[1:]:
+        new_mat = create_trans_matrix(row)
+        final_matrix = np.matmul(final_matrix, new_mat)
+
+    green_position = final_matrix.dot(initial)[:3]
+
+    return green_position
+
+
+
+def equations(joint_angles, actual_red, actual_green):
     pred_red = get_effector_position(joint_angles)
-    return np.linalg.norm(pred_red - actual_red)
+    pred_green = get_green_position(joint_angles)
+    return np.concatenate([-pred_red + actual_red, -pred_green + actual_green])
 
 
-def solve_angles(actual_red, joint_angles=np.zeros(4)):
-
-    np.savetxt('previous_effector_pos.txt', [0, 0, 7])
-    np.savetxt('previous_angles.txt', [0, 0, 0])
-    predicted_angles = least_squares(equations, joint_angles, args=(actual_red,)).x
-    predicted_angles[2] = -predicted_angles[2]
-
-    previous_effector_pos = np.loadtxt('previous_effector_pos.txt')
-    print("Previous Position: ", previous_effector_pos)
-    previous_angles = np.loadtxt('previous_angles.txt')
-    print("Previous Angles: ", previous_angles)
-    print("Current Angles: ", predicted_angles)
-    if check_z_coordinate(previous_effector_pos[2], actual_red[2]):
-        predicted_angles[0] += find_angle_joint_1(previous_effector_pos[:2], actual_red[:2])
-
-    print("Adjusted Current Angles: ", predicted_angles)
-
-    np.savetxt('previous_effector_pos.txt', actual_red)
-    np.savetxt('previous_angles.txt', predicted_angles)
+def solve_angles(actual_red, actual_green, joint_angles=np.array([0.0, 0.5, 0.5, 0.5])):
+    actual_red[0] = -actual_red[0]
+    actual_green[0] = -actual_green[0]
+    bounds = ( np.array([-np.pi/2, -np.pi/2, -np.pi/2, -np.pi/2]), 
+		np.array([np.pi/2, np.pi/2, np.pi/2, np.pi/2])
+	      )
+    predicted_angles = least_squares(equations, joint_angles, args=(actual_red, actual_green), bounds=bounds).x
 
     return predicted_angles
-
-def check_z_coordinate(previous_effector_pos, predicted_z):
-    diff = np.abs(previous_effector_pos - predicted_z)
-    return diff <= 0.5
 
 
 def create_trans_matrix(row):

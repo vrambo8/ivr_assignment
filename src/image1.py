@@ -42,12 +42,12 @@ class image_converter:
         try:
             cx = int(M['m10'] / M['m00'])
         except ZeroDivisionError:
-            return None
+            return self.detect_green(image)
         try:
             cy = int(M['m01'] / M['m00'])
         except ZeroDivisionError:
-            return None
-        return np.array([cx, cy])
+            return self.detect_green(image)
+	return np.array([cx, cy]);
 
         # Detecting the centre of the green circle
 
@@ -59,11 +59,11 @@ class image_converter:
         try:
             cx = int(M['m10'] / M['m00'])
         except ZeroDivisionError:
-            return None
+            return self.detect_blue(image)
         try:
             cy = int(M['m01'] / M['m00'])
         except ZeroDivisionError:
-            return None
+            return self.detect_blue(image)
         return np.array([cx, cy])
 
         # Detecting the centre of the blue circle
@@ -76,11 +76,11 @@ class image_converter:
         try:
             cx = int(M['m10'] / M['m00'])
         except ZeroDivisionError:
-            return None
+            return self.detect_green(image)
         try:
             cy = int(M['m01'] / M['m00'])
         except ZeroDivisionError:
-            return None
+            return self.detect_green(image)
         return np.array([cx, cy])
 
         # Detecting the centre of the yellow circle
@@ -89,15 +89,16 @@ class image_converter:
         mask = cv2.inRange(image, (0, 100, 100), (0, 255, 255))
         kernel = np.ones((5, 5), np.uint8)
         mask = cv2.dilate(mask, kernel, iterations=3)
+        # cv2.imshow('mask2', mask)
         M = cv2.moments(mask)
         try:
             cx = int(M['m10'] / M['m00'])
         except ZeroDivisionError:
-            return None
+            return self.detect_red(image)
         try:
             cy = int(M['m01'] / M['m00'])
         except ZeroDivisionError:
-            return None
+            return self.detect_red(image)
 
         return np.array([cx, cy])
 
@@ -130,12 +131,13 @@ class image_converter:
         except ZeroDivisionError:
             return None
 
-        a = self.pixel2meter(image)
+        a = 0.0375
         center = a * self.detect_yellow(image)
         target = a * np.array([cx, cy])
-        # print("YELLOW: ", a * self.detect_yellow(image))
-        # print("TARGET: ", a * np.array([cx, cy]))
+        print("YELLOW: ", a * self.detect_yellow(image))
+        print("TARGET: ", a * np.array([cx, cy]))
         dist = np.abs([target[0] - center[0], target[1] - center[1]])
+	print("DIST: ", dist)
         return dist
 
     # Calculate the relevant joint angles from the image
