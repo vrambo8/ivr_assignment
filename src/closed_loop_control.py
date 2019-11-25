@@ -58,6 +58,54 @@ class Server:
         self.zs2 = msg
         # self.calculate_angles()
 
+    def callback(self, data):
+        # Recieve the image
+        try:
+            cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
+        except CvBridgeError as e:
+            print(e)
+
+        # Perform image processing task (your code goes here)
+        # The image is loaded as cv_imag
+
+        # Uncomment if you want to save the image
+        # cv2.imwrite('image_copy.png', cv_image)
+
+        cv2.imshow('window', cv_image)
+        cv2.waitKey(3)
+
+        # publish robot joints angles (lab 1 and 2)
+        self.joints = Float64MultiArray()
+        self.joints.data = self.detect_joint_angles(cv_image)
+
+        # compare the estimated position of robot end-effector calculated from images with forward kinematics(lab 3)
+
+        # send control commands to joints (lab 3)
+        q_d = self.control_closed(cv_image)
+        # q_d = self.control_open(cv_image)
+        self.joint1 = Float64()
+        self.joint1.data = q_d[0]
+        self.joint2 = Float64()
+        self.joint2.data = q_d[1]
+        self.joint3 = Float64()
+        self.joint3.data = q_d[2]
+
+        # Publishing the desired trajectory on a topic named trajectory(lab 3)
+        x_d = self.trajectory()  # getting the desired trajectory
+        self.trajectory_desired = Float64MultiArray()
+        self.trajectory_desired.data = x_d
+
+        # Publish the results
+        try:
+            self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "bgr8"))
+            self.joints_pub.publish(self.joints)
+            self.trajectory_pub.publish(self.trajectory_desired)
+            self.robot_joint1_pub.publish(self.joint1)
+            self.robot_joint2_pub.publish(self.joint2)
+            self.robot_joint3_pub.publish(self.joint3)
+        except CvBridgeError as e:
+            print(e)
+
     def closed_loop(self):
         if self.zs1 is not None and self.ys is not None and self.zs2 is not None and self.xs is not None:
             # print("Image1: ", zip(self.ys.data, self.zs1.data))
