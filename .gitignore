@@ -2,4 +2,5 @@ src/venv
 src/.idea
 src/*.pyc
 src/__pycache__/
-
+*.numbers
+*.xlsx

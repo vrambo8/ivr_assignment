@@ -29,7 +29,27 @@ def equations(joint_angles, actual_red):
 
 
 def solve_angles(actual_red, joint_angles=np.zeros(4)):
-    return least_squares(equations, joint_angles, args=(actual_red,)).x
+    predicted_angles = least_squares(equations, joint_angles, args=(actual_red,)).x
+    predicted_angles[2] = -predicted_angles[2]
+
+    previous_effector_pos = np.loadtxt('previous_effector_pos.txt')
+    print("Previous Position: ", previous_effector_pos)
+    previous_angles = np.loadtxt('previous_angles.txt')
+    print("Previous Angles: ", previous_angles)
+    print("Current Angles: ", predicted_angles)
+    if self.check_z_coordinate(previous_effector_pos[2], actual_red[2]):
+        predicted_angles[0] += find_angle_joint_1(previous_effector_pos[:2], actual_red[:2])
+
+    print("Adjusted Current Angles: ", predicted_angles)
+
+    np.savetxt('previous_effector_pos.txt', actual_red)
+    np.savetxt('previous_angles.txt', predicted_angles)
+
+    return predicted_angles
+
+def check_z_coordinate(previous_effector_pos, predicted_z):
+    diff = np.abs(previous_effector_pos - predicted_z)
+    return diff <= 0.5
 
 
 def create_trans_matrix(row):
