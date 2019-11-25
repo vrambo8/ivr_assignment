@@ -29,6 +29,9 @@ def equations(joint_angles, actual_red):
 
 
 def solve_angles(actual_red, joint_angles=np.zeros(4)):
+
+    np.savetxt('previous_effector_pos.txt', [0, 0, 7])
+    np.savetxt('previous_angles.txt', [0, 0, 0])
     predicted_angles = least_squares(equations, joint_angles, args=(actual_red,)).x
     predicted_angles[2] = -predicted_angles[2]
 
@@ -37,7 +40,7 @@ def solve_angles(actual_red, joint_angles=np.zeros(4)):
     previous_angles = np.loadtxt('previous_angles.txt')
     print("Previous Angles: ", previous_angles)
     print("Current Angles: ", predicted_angles)
-    if self.check_z_coordinate(previous_effector_pos[2], actual_red[2]):
+    if check_z_coordinate(previous_effector_pos[2], actual_red[2]):
         predicted_angles[0] += find_angle_joint_1(previous_effector_pos[:2], actual_red[:2])
 
     print("Adjusted Current Angles: ", predicted_angles)

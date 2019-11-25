@@ -54,8 +54,8 @@ class Server:
 
 
 if __name__ == "__main__":
-    np.savetxt('previous_effector_pos.txt', [0, 0, 7])
-    np.savetxt('previous_angles.txt', [0, 0, 0])
+    #np.savetxt('previous_effector_pos.txt', [0, 0, 7])
+    #np.savetxt('previous_angles.txt', [0, 0, 0])
     server = Server()
 
     rospy.init_node('angles')

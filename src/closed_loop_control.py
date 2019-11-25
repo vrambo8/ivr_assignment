@@ -34,15 +34,13 @@ class Server:
         self.robot_joint3_pub = rospy.Publisher("/robot/joint3_position_controller/command", Float64, queue_size=10)
         # initialize the bridge between openCV and ROS
         self.bridge = CvBridge()
-        # initialize a subscriber to recieve messages rom a topic named /robot/camera1/image_raw and use callback function to recieve data
-        self.image_sub = rospy.Subscriber("/robot/camera1/image_raw", Image, self.callback)
         # record the begining time
         self.time_trajectory = rospy.get_time()
         # initialize errors
         self.time_previous_step = np.array([rospy.get_time()], dtype='float64')
         # initialize error and derivative of error for trajectory tracking
-        self.error = np.array([0.0, 0.0], dtype='float64')
-        self.error_d = np.array([0.0, 0.0], dtype='float64')
+        self.error = np.array([0.0, 0.0, 0.0], dtype='float64')
+        self.error_d = np.array([0.0, 0.0, 0.0], dtype='float64')
 
     def image1_callback_y(self, msg):
         self.ys = msg
@@ -60,7 +58,7 @@ class Server:
         self.zs2 = msg
         # self.calculate_angles()
 
-    def calculate_angles(self):
+    def closed_loop(self):
         if self.zs1 is not None and self.ys is not None and self.zs2 is not None and self.xs is not None:
             # print("Image1: ", zip(self.ys.data, self.zs1.data))
             # print("Image2: ", zip(self.xs.data, self.zs2.data))
@@ -89,10 +87,18 @@ class Server:
             # estimate error
             self.error = pos_d - pos
             q = solve_angles(effector_pos) # estimate initial value of joints'
-            J_inv = np.linalg.pinv(self.calculate_jacobian(q))  # calculating the psudeo inverse of Jacobian
+	    
+            J_inv = np.linalg.pinv(self.jacobian(q))
+	     # calculating the psudeo inverse of Jacobian
             dq_d = np.dot(J_inv, (np.dot(K_d, self.error_d.transpose()) + np.dot(K_p, self.error.transpose())))  # control input (angular velocity of joints)
             q_d = q + (dt * dq_d)  # control input (angular position of joints)
-            return q_d
+            return [q % 2*np.pi for q in q_d]
+
+    def trajectory(self):
+	cur_time = np.array([rospy.get_time() - self.time_trajectory])
+	x_d = float(6* np.cos(cur_time * np.pi/100))
+	y_d = float(6 + np.absolute(1.5* np.sin(cur_time * np.pi/100)))
+	return np.array([x_d, y_d, 0])
 
     def jacobian(self, joint_angles):
         t1 = sym.symbols('t1')
@@ -105,7 +111,7 @@ class Server:
         row2 = [sym.diff(eqs[1], t1), sym.diff(eqs[1], t2), sym.diff(eqs[1], t3), sym.diff(eqs[1], t4)]
         row3 = [sym.diff(eqs[2], t1), sym.diff(eqs[2], t2), sym.diff(eqs[2], t3), sym.diff(eqs[2], t4)]
         J = (((sym.Matrix([row1, row2, row3]).subs(t1, t[0])).subs(t2, t[1])).subs(t3, t[2])).subs(t4, t[3])
-        return np.array(J.evalf())
+        return np.array(J.evalf(), dtype='float64')
 
     def kinematic_eqs(self, joint_angles):
         theta = joint_angles
@@ -120,7 +126,7 @@ class Server:
             new_mat = self.create_trans_matrix(row)
             final_matrix = final_matrix * new_mat
 
-        eqs = sym.Matrix(final_matrix.dot(initial)[:3])
+        eqs = sym.Matrix((final_matrix*(initial))[:3])
 
         return sym.expand(eqs)
 
@@ -145,7 +151,6 @@ class Server:
 if __name__ == "__main__":
     server = Server()
 
-    rospy.init_node('angles')
     rospy.Subscriber("/joints_pos_y", Float64MultiArray, server.image1_callback_y)
     rospy.Subscriber("/joints_pos_z_1", Float64MultiArray, server.image1_callback_z)
     rospy.Subscriber("/joints_pos_x", Float64MultiArray, server.image2_callback_x)
@@ -153,4 +158,4 @@ if __name__ == "__main__":
 
     rospy.spin()
 
-    server.calculate_angles()
+    print(server.closed_loop())
