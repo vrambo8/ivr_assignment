@@ -48,13 +48,14 @@ def equations(joint_angles, actual_red, actual_green):
     return np.concatenate([-pred_red + actual_red, -pred_green + actual_green])
 
 
-def solve_angles(actual_red, actual_green, joint_angles=np.array([0.0, 0.5, 0.5, 0.5])):
-    actual_red[0] = -actual_red[0]
-    actual_green[0] = -actual_green[0]
+def solve_angles(actual_red, actual_green, joint_angles=np.array([0, 0, 0, 0])):
     bounds = ( np.array([-np.pi/2, -np.pi/2, -np.pi/2, -np.pi/2]), 
 		np.array([np.pi/2, np.pi/2, np.pi/2, np.pi/2])
 	      )
-    predicted_angles = least_squares(equations, joint_angles, args=(actual_red, actual_green), bounds=bounds).x
+    try:
+    	predicted_angles = least_squares(equations, joint_angles, args=(actual_red, actual_green), bounds=bounds).x
+    except ValueError:
+	return solve_angles(actual_red, actual_green, joint_angles + np.array([0.1, 0.1, 0.1, 0.1]))
 
     return predicted_angles
 

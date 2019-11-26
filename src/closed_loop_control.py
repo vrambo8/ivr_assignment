@@ -39,6 +39,10 @@ class Server:
         self.robot_joint3_pub = rospy.Publisher("/robot/joint3_position_controller/command", Float64, queue_size=10)
 	self.robot_joint4_pub = rospy.Publisher("/robot/joint4_position_controller/command", Float64, queue_size=10)
         # initialize the bridge between openCV and ROS
+	self.end_x = rospy.Publisher("end_x", Float64, queue_size=10)
+	self.end_y = rospy.Publisher("end_y", Float64, queue_size=10)
+	self.end_z = rospy.Publisher("end_z", Float64, queue_size=10)
+
         self.bridge = CvBridge()
         # record the begining time
         self.time_trajectory = rospy.get_time()
@@ -107,6 +111,8 @@ class Server:
             mean_zs = [np.mean([z1, z2]) for (z1, z2) in zip(self.zs1.data, self.zs2.data)]
             xs = self.xs.data
             ys = self.ys.data
+            zs1 = self.zs1.data
+            zs2 = self.zs2.data	    
 
 	    mean_target_z = np.mean([self.target_z1.data, self.target_z2.data])
             target_x = self.target_x.data
@@ -114,8 +120,10 @@ class Server:
 	
 
             # joint positions
-            effector_pos = np.array([xs[0], ys[0], mean_zs[0]]) - np.array([xs[3], ys[3], mean_zs[3]])
-	    green_pos = np.array([xs[0], ys[0], mean_zs[0]]) - np.array([xs[2], ys[2], mean_zs[2]])
+	    mean_z_effector = np.mean([zs1[0] - zs1[3], zs2[0] - zs2[3]])
+            effector_pos = np.array([xs[3] - xs[0], ys[0] - ys[3], mean_z_effector])
+	    mean_z_green = np.mean([zs1[0] - zs1[2], zs2[0] - zs2[2]])
+            green_pos = np.array([xs[2] - xs[0], ys[0] - ys[2], mean_z_green])
 
             # P gain
             K_p = np.array([[10, 0, 0], [0, 10, 0], [0, 0, 10]])
@@ -129,7 +137,7 @@ class Server:
 
             # robot end-effector position
             pos = effector_pos
-	    print(pos, " Effector")
+	   
             # desired trajectory
             pos_d = np.array([target_x, target_y, mean_target_z])
 	    print(pos_d, " Target")
@@ -138,8 +146,12 @@ class Server:
             self.error_d = ((pos_d - pos) - self.error) / dt
             # estimate error
             self.error = pos_d - pos
-	    pos = np.abs(effector_pos)
-	    green_pos = np.abs(green_pos)
+	   
+	    self.end_x.publish(pos[0])
+	    self.end_y.publish(pos[1])
+	    self.end_z.publish(pos[2])
+	    print(pos, " Effector")
+
             q = solve_angles(pos, green_pos) # estimate initial value of joints'
 	    
             J_inv = np.linalg.pinv(self.jacobian(q))
